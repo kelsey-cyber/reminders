@@ -1,2 +1,2 @@
 @echo off
-powershell -ExecutionPolicy Bypass -File "%~dp0recap.ps1" %*
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0recap.ps1" %*
