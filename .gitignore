@@ -2,3 +2,5 @@ __pycache__/
 *.pyc
 .env
 data/activities.json
+activities.json
+todos.json

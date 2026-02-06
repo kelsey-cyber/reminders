@@ -14,6 +14,7 @@ $Settings = @{
 # --- File paths ---
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $DataFile = Join-Path $ScriptDir "activities.json"
+$TodoFile = Join-Path $ScriptDir "todos.json"
 
 # --- Helper functions ---
 
@@ -150,6 +151,24 @@ function Send-RecapEmail {
     $projLine = ""
     if ($projects) { $projLine = " | Projects: $projects" }
 
+    # Build to-do list section
+    $todos = Load-Todos
+    $todoSection = ""
+    if ($todos.Count -gt 0) {
+        $todoSection = "<h2 style='color:#2c3e50;border-bottom:2px solid #e67e22;padding-bottom:10px;margin-top:32px;'>Tomorrow's To-Do List</h2>"
+        foreach ($t in $todos) {
+            $checkStyle = "width:18px;height:18px;border:2px solid #e67e22;border-radius:4px;display:inline-block;margin-right:10px;vertical-align:middle;"
+            $textStyle = "font-size:1em;"
+            if ($t.done) {
+                $checkStyle = "width:18px;height:18px;border:2px solid #27ae60;border-radius:4px;display:inline-block;margin-right:10px;vertical-align:middle;background:#27ae60;color:white;text-align:center;line-height:18px;font-size:12px;"
+                $textStyle = "font-size:1em;text-decoration:line-through;color:#95a5a6;"
+                $todoSection += "<div style='padding:8px 0;'><span style='$checkStyle'>&#10003;</span><span style='$textStyle'>$($t.description)</span></div>"
+            } else {
+                $todoSection += "<div style='padding:8px 0;'><span style='$checkStyle'></span><span style='$textStyle'>$($t.description)</span></div>"
+            }
+        }
+    }
+
     $html = @"
 <!DOCTYPE html>
 <html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#333;max-width:600px;margin:0 auto;padding:20px;">
@@ -158,6 +177,7 @@ $rows
 <div style="background:#eaf7ea;padding:16px;border-radius:8px;margin-top:24px;">
 <span style="font-weight:600;color:#27ae60;">$($activities.Count)</span> item(s) across <span style="font-weight:600;color:#27ae60;">$($grouped.Count)</span> category/categories$projLine
 </div>
+$todoSection
 <div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:0.85em;color:#95a5a6;">Sent by Daily Recap Bot</div>
 </body></html>
 "@
@@ -198,6 +218,131 @@ $rows
         Write-Host "  - Make sure you created an App Password (not your regular password)" -ForegroundColor Gray
         Write-Host ""
     }
+}
+
+# --- To-do list functions ---
+
+function Load-Todos {
+    if (Test-Path $TodoFile) {
+        $content = Get-Content $TodoFile -Raw
+        if ($content) {
+            return @(($content | ConvertFrom-Json))
+        }
+    }
+    return @()
+}
+
+function Save-Todos($todos) {
+    if ($todos.Count -eq 0) {
+        "[]" | Set-Content $TodoFile
+    } else {
+        $todos | ConvertTo-Json -Depth 5 | Set-Content $TodoFile
+    }
+}
+
+function Add-Todo {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Description
+    )
+
+    $todos = Load-Todos
+    $todo = @{
+        description = $Description
+        done        = $false
+    }
+    $todos += $todo
+    Save-Todos $todos
+
+    Write-Host ""
+    Write-Host "  To-do added: $Description" -ForegroundColor Green
+    Write-Host "  You now have $($todos.Count) item(s) on tomorrow's list." -ForegroundColor Gray
+    Write-Host ""
+}
+
+function Show-Todos {
+    $todos = Load-Todos
+
+    if ($todos.Count -eq 0) {
+        Write-Host ""
+        Write-Host "  No to-do items yet." -ForegroundColor Yellow
+        Write-Host "  To add one, run:  recap.bat todo `"what you need to do tomorrow`"" -ForegroundColor Gray
+        Write-Host ""
+        return
+    }
+
+    Write-Host ""
+    Write-Host "  === Tomorrow's To-Do List ===" -ForegroundColor Cyan
+    Write-Host ""
+
+    $i = 1
+    foreach ($t in $todos) {
+        $check = " "
+        $color = "White"
+        if ($t.done) { $check = "x"; $color = "DarkGray" }
+        Write-Host "  $i. [$check] $($t.description)" -ForegroundColor $color
+        $i++
+    }
+    Write-Host ""
+}
+
+function Complete-Todo {
+    param(
+        [Parameter(Mandatory=$true)]
+        [int]$Number
+    )
+
+    $todos = Load-Todos
+
+    if ($Number -lt 1 -or $Number -gt $todos.Count) {
+        Write-Host ""
+        Write-Host "  Invalid number. You have $($todos.Count) to-do item(s)." -ForegroundColor Red
+        Write-Host ""
+        return
+    }
+
+    $todos[$Number - 1].done = $true
+    Save-Todos $todos
+
+    Write-Host ""
+    Write-Host "  Done: $($todos[$Number - 1].description)" -ForegroundColor Green
+    Write-Host ""
+}
+
+function Remove-Todo {
+    param(
+        [Parameter(Mandatory=$true)]
+        [int]$Number
+    )
+
+    $todos = @(Load-Todos)
+
+    if ($Number -lt 1 -or $Number -gt $todos.Count) {
+        Write-Host ""
+        Write-Host "  Invalid number. You have $($todos.Count) to-do item(s)." -ForegroundColor Red
+        Write-Host ""
+        return
+    }
+
+    $removed = $todos[$Number - 1].description
+    $newTodos = @()
+    for ($i = 0; $i -lt $todos.Count; $i++) {
+        if ($i -ne ($Number - 1)) {
+            $newTodos += $todos[$i]
+        }
+    }
+    Save-Todos $newTodos
+
+    Write-Host ""
+    Write-Host "  Removed: $removed" -ForegroundColor Green
+    Write-Host ""
+}
+
+function Clear-AllTodos {
+    Save-Todos @()
+    Write-Host ""
+    Write-Host "  To-do list cleared." -ForegroundColor Green
+    Write-Host ""
 }
 
 function Clear-TodayActivities {
@@ -244,6 +389,23 @@ function Show-Help {
     Write-Host "  .\recap.bat clear" -ForegroundColor Green
     Write-Host "      Erase today's list and start over" -ForegroundColor Gray
     Write-Host ""
+    Write-Host "  TOMORROW'S TO-DO LIST:" -ForegroundColor White
+    Write-Host ""
+    Write-Host "  .\recap.bat todo `"task for tomorrow`"" -ForegroundColor Green
+    Write-Host "      Add something to tomorrow's to-do list" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "  .\recap.bat todos" -ForegroundColor Green
+    Write-Host "      See tomorrow's to-do list" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "  .\recap.bat done 1" -ForegroundColor Green
+    Write-Host "      Mark a to-do item as done (use the number from the list)" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "  .\recap.bat remove 1" -ForegroundColor Green
+    Write-Host "      Remove a to-do item (use the number from the list)" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "  .\recap.bat cleartodos" -ForegroundColor Green
+    Write-Host "      Erase the whole to-do list" -ForegroundColor Gray
+    Write-Host ""
 }
 
 # --- Run the right command ---
@@ -277,5 +439,35 @@ switch ($command) {
     "list"  { Show-Activities }
     "send"  { Send-RecapEmail }
     "clear" { Clear-TodayActivities }
+    "todo" {
+        if ($args.Count -lt 2) {
+            Write-Host ""
+            Write-Host "  What do you need to do tomorrow?" -ForegroundColor Yellow
+            Write-Host "  Usage: recap.bat todo `"task for tomorrow`"" -ForegroundColor Gray
+            Write-Host ""
+        } else {
+            Add-Todo -Description $args[1]
+        }
+    }
+    "todos" { Show-Todos }
+    "done" {
+        if ($args.Count -lt 2) {
+            Write-Host ""
+            Write-Host "  Which item number? Run 'recap.bat todos' to see the list." -ForegroundColor Yellow
+            Write-Host ""
+        } else {
+            Complete-Todo -Number ([int]$args[1])
+        }
+    }
+    "remove" {
+        if ($args.Count -lt 2) {
+            Write-Host ""
+            Write-Host "  Which item number? Run 'recap.bat todos' to see the list." -ForegroundColor Yellow
+            Write-Host ""
+        } else {
+            Remove-Todo -Number ([int]$args[1])
+        }
+    }
+    "cleartodos" { Clear-AllTodos }
     default { Show-Help }
 }
