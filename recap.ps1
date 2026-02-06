@@ -226,17 +226,24 @@ function Load-Todos {
     if (Test-Path $TodoFile) {
         $content = Get-Content $TodoFile -Raw
         if ($content) {
-            return @(($content | ConvertFrom-Json))
+            $parsed = $content | ConvertFrom-Json
+            $list = New-Object System.Collections.ArrayList
+            if ($parsed -is [array]) {
+                foreach ($item in $parsed) { [void]$list.Add($item) }
+            } else {
+                [void]$list.Add($parsed)
+            }
+            return $list
         }
     }
-    return @()
+    return (New-Object System.Collections.ArrayList)
 }
 
 function Save-Todos($todos) {
-    if ($todos.Count -eq 0) {
+    if ($null -eq $todos -or $todos.Count -eq 0) {
         "[]" | Set-Content $TodoFile
     } else {
-        $todos | ConvertTo-Json -Depth 5 | Set-Content $TodoFile
+        @($todos) | ConvertTo-Json -Depth 5 | Set-Content $TodoFile
     }
 }
 
@@ -251,7 +258,7 @@ function Add-Todo {
         description = $Description
         done        = $false
     }
-    $todos += $todo
+    [void]$todos.Add($todo)
     Save-Todos $todos
 
     Write-Host ""
