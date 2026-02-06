@@ -1,8 +1,36 @@
 # Daily Recap Email
 
-A CLI tool to track what you work on throughout the day and send yourself a recap email summary.
+Track what you work on throughout the day and get a summary emailed to you.
 
-## Setup
+## Windows Setup (No Installation Needed)
+
+### Step 1: Set up your email
+
+Double-click **setup.bat** -- it will open the settings file and show you instructions for getting your Gmail App Password.
+
+In the file that opens, find these lines near the top and replace them with your info:
+
+```
+YourEmail      = "your-email@gmail.com"
+AppPassword    = "your-app-password-here"
+```
+
+Save the file and close it.
+
+### Step 2: Use it
+
+Open Command Prompt, go to the project folder, and use these commands:
+
+```
+.\recap.bat add "what you worked on"       Log something you did
+.\recap.bat list                            See today's list
+.\recap.bat send                            Send the recap email
+.\recap.bat clear                           Erase today's list
+```
+
+---
+
+## Python Setup (Mac/Linux/Advanced)
 
 1. Install dependencies:
 
@@ -10,7 +38,7 @@ A CLI tool to track what you work on throughout the day and send yourself a reca
 pip install -r requirements.txt
 ```
 
-2. Configure email settings:
+2. Configure email:
 
 ```bash
 cp .env.example .env
@@ -19,47 +47,16 @@ cp .env.example .env
 
 For Gmail, use an [App Password](https://support.google.com/accounts/answer/185833) (not your regular password).
 
-## Usage
-
-### Log activities throughout the day
+### Commands
 
 ```bash
 python main.py add "Fixed authentication bug"
 python main.py add "Sprint planning meeting" --category meeting
 python main.py add "Reviewed PR #42" --category review --project myapp
-```
-
-Categories: `general`, `coding`, `meeting`, `review`, `writing`, `research` (or any custom string).
-
-### View today's log
-
-```bash
 python main.py list
-```
-
-### Preview the recap
-
-```bash
 python main.py preview
-```
-
-### Send the recap email
-
-```bash
 python main.py send
-```
-
-### Auto-send on a schedule
-
-```bash
 python main.py schedule
-```
-
-This runs a background process that sends the recap at the time set in `.env` (`RECAP_TIME`, default `18:00`).
-
-### Clear today's activities
-
-```bash
 python main.py clear
 ```
 
@@ -67,12 +64,13 @@ python main.py clear
 
 ```
 reminders/
-  config.py              - Configuration (loads from .env)
-  main.py                - CLI entry point
+  recap.bat              - Windows shortcut (just type .\recap.bat)
+  recap.ps1              - Windows PowerShell version (no install needed)
+  setup.bat              - Double-click to set up your email
+  main.py                - Python version entry point
+  config.py              - Python version configuration
   daily_recap/
     tracker.py           - Activity logging (JSON-based storage)
     recap_builder.py     - Formats activities into HTML/plain-text email
     email_service.py     - Sends email via SMTP
-  data/
-    activities.json      - Stored activities (auto-created, git-ignored)
 ```
